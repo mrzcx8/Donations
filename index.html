@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - QR Sumbangan</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+        input, button { margin-top: 10px; }
+        table { width: 80%; margin: 20px auto; border-collapse: collapse; }
+        th, td { border: 1px solid black; padding: 8px; text-align: center; }
+    </style>
+</head>
+<body>
+    <h2>Admin - Tetapkan QR dan Jumlah</h2>
+    <img id="qrPreview" src="" alt="QR Code" width="200" style="display:none; margin-top: 10px;">
+    <br>
+    <input type="number" id="goalAmount" placeholder="Jumlah Sasaran" min="1">
+    <button onclick="setGoal()">Tetapkan Jumlah</button>
+    <h3>Jumlah Diperlukan: RM <span id="neededAmount">0</span></h3>
+    <h3>Rekod Sumbangan</h3>
+    <table>
+        <tr><th>Jumlah (RM)</th></tr>
+        <tbody id="donationRecords"></tbody>
+    </table>
+    
+    <script>
+        const SHEET_API_URL = "https://script.google.com/macros/s/YOUR_DEPLOYED_SCRIPT_ID/exec";
+        
+        async function setGoal() {
+            let goalAmount = parseFloat(document.getElementById('goalAmount').value) || 0;
+            document.getElementById('neededAmount').textContent = goalAmount;
+            try {
+                let response = await fetch(`${SHEET_API_URL}?action=setGoal&amount=${goalAmount}`);
+                let data = await response.json();
+                alert("Jumlah sasaran dikemas kini!");
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        async function fetchData() {
+            try {
+                let response = await fetch(`${SHEET_API_URL}?action=getData`);
+                let data = await response.json();
+                
+                // Set QR Code
+                if (data.qrCode) {
+                    document.getElementById('qrPreview').src = data.qrCode;
+                    document.getElementById('qrPreview').style.display = 'block';
+                }
+                
+                // Set goal amount
+                if (data.goalAmount) {
+                    document.getElementById('neededAmount').textContent = data.goalAmount;
+                }
+                
+                // Populate donation records
+                let tableBody = document.getElementById('donationRecords');
+                tableBody.innerHTML = "";
+                if (data.donations && data.donations.length > 0) {
+                    data.donations.forEach(amount => {
+                        let row = `<tr><td>RM ${amount}</td></tr>`;
+                        tableBody.innerHTML += row;
+                    });
+                } else {
+                    tableBody.innerHTML = "<tr><td>Tiada sumbangan lagi</td></tr>";
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        fetchData();
+    </script>
+</body>
+</html>
