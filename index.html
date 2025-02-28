@@ -3,75 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - QR Sumbangan</title>
+    <title>Donation System</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
-        input, button { margin-top: 10px; }
-        table { width: 80%; margin: 20px auto; border-collapse: collapse; }
-        th, td { border: 1px solid black; padding: 8px; text-align: center; }
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background: white;
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        #qr-code {
+            width: 200px;
+            height: 200px;
+            margin: 20px auto;
+            display: block;
+        }
+        label, input, button {
+            display: block;
+            width: 100%;
+            margin: 10px 0;
+        }
+        input {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background: #218838;
+        }
+        .total-donations {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
-    <h2>Admin - Tetapkan QR dan Jumlah</h2>
-    <img id="qrPreview" src="" alt="QR Code" width="200" style="display:none; margin-top: 10px;">
-    <br>
-    <input type="number" id="goalAmount" placeholder="Jumlah Sasaran" min="1">
-    <button onclick="setGoal()">Tetapkan Jumlah</button>
-    <h3>Jumlah Diperlukan: RM <span id="neededAmount">0</span></h3>
-    <h3>Rekod Sumbangan</h3>
-    <table>
-        <tr><th>Jumlah (RM)</th></tr>
-        <tbody id="donationRecords"></tbody>
-    </table>
+    <div class="container">
+        <h2>Donation System</h2>
+        <p>Scan the QR code below to donate:</p>
+        <img id="qr-code" src="" alt="QR Code">
+        <label for="name">Enter Name:</label>
+        <input type="text" id="name" placeholder="Your Name">
+        <label for="amount">Enter Amount (RM):</label>
+        <input type="number" id="amount" min="1" step="0.01">
+        <button onclick="donate()">Donate</button>
+        <p class="total-donations">Total Donations: RM <span id="total-donations">0.00</span></p>
+    </div>
     
     <script>
-        const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbyVlm09PIjuSysf9A4M2kb2toSXPzayEzQHJYEkWlqI39GkANZaJ_D2YDgbSzv1noHa/exec";
-        
-        async function setGoal() {
-            let goalAmount = parseFloat(document.getElementById('goalAmount').value) || 0;
-            document.getElementById('neededAmount').textContent = goalAmount;
-            try {
-                let response = await fetch(`${SHEET_API_URL}?action=setGoal&amount=${goalAmount}`);
-                let data = await response.json();
-                alert("Jumlah sasaran dikemas kini!");
-            } catch (error) {
-                console.error('Error:', error);
-            }
+        const scriptURL = "https://script.google.com/macros/s/AKfycbwMi76J3z9CSUmqwmNWVnFxv1a8xREjbER-WxgoeDQdzSbGsFiDa_GgraDnpLNlCbhh/exec"; 
+
+        // Fetch QR Code from Google Sheets
+        fetch(scriptURL + "?action=getQR")
+            .then(response => response.text())
+            .then(qrURL => { document.getElementById("qr-code").src = qrURL; });
+
+        // Fetch total donations
+        function updateTotalDonations() {
+            fetch(scriptURL + "?action=getTotal")
+                .then(response => response.text())
+                .then(total => { document.getElementById("total-donations").innerText = parseFloat(total).toFixed(2); })
+                .catch(error => console.error("Error fetching total donations:", error));
         }
-        
-        async function fetchData() {
-            try {
-                let response = await fetch(`${SHEET_API_URL}?action=getData`);
-                let data = await response.json();
-                
-                // Set QR Code
-                if (data.qrCode) {
-                    document.getElementById('qrPreview').src = data.qrCode;
-                    document.getElementById('qrPreview').style.display = 'block';
-                }
-                
-                // Set goal amount
-                if (data.goalAmount) {
-                    document.getElementById('neededAmount').textContent = data.goalAmount;
-                }
-                
-                // Populate donation records
-                let tableBody = document.getElementById('donationRecords');
-                tableBody.innerHTML = "";
-                if (data.donations && data.donations.length > 0) {
-                    data.donations.forEach(amount => {
-                        let row = `<tr><td>RM ${amount}</td></tr>`;
-                        tableBody.innerHTML += row;
-                    });
-                } else {
-                    tableBody.innerHTML = "<tr><td>Tiada sumbangan lagi</td></tr>";
-                }
-            } catch (error) {
-                console.error('Error:', error);
+
+        updateTotalDonations();
+
+        function donate() {
+            let name = document.getElementById("name").value;
+            let amount = document.getElementById("amount").value;
+
+            if (!name || amount <= 0) {
+                alert("Please enter valid details.");
+                return;
             }
+
+            fetch(scriptURL + "?action=donate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: name, amount: amount })
+            })
+            .then(response => response.text())
+            .then(data => {
+                alert("Thank you for your donation!");
+                updateTotalDonations(); // Update total donations after successful donation
+            })
+            .catch(error => { console.error("Error:", error); });
         }
-        
-        fetchData();
     </script>
 </body>
 </html>
